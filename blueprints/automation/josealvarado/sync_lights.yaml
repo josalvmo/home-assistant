@@ -2,12 +2,12 @@ blueprint:
   name: Sync Lights with Primary Light
   description: >
     Synchronize multiple lights with a designated primary (lead) light. 
-    When the primary light's state changes, all other lights will follow.
+    When the primary light's ON/OFF state changes, all other lights will follow.
   domain: automation
   input:
     primary_light:
       name: Primary Light
-      description: The light to use as the leader.
+      description: The main light that triggers the sync.
       selector:
         entity:
           domain: light
@@ -22,28 +22,28 @@ blueprint:
 trigger:
   - platform: state
     entity_id: !input primary_light
+    to: 'on'
+  - platform: state
+    entity_id: !input primary_light
+    to: 'off'
 
 condition: []
 
 action:
-  - variables:
-      lead: !input primary_light
-      targets: !input synced_lights
-
-  - service: light.turn_on
-    target: "{{ targets }}"
-    data:
-      transition: 1
-      brightness: "{{ state_attr(lead, 'brightness') if state_attr(lead, 'brightness') != none else omit }}"
-      color_temp: "{{ state_attr(lead, 'color_temp') if state_attr(lead, 'color_temp') != none else omit }}"
-      hs_color: "{{ state_attr(lead, 'hs_color') if state_attr(lead, 'hs_color') != none else omit }}"
-  
   - choose:
       - conditions:
-          - condition: template
-            value_template: "{{ states(lead) == 'off' }}"
+          - condition: state
+            entity_id: !input primary_light
+            state: 'on'
+        sequence:
+          - service: light.turn_on
+            target: !input synced_lights
+      - conditions:
+          - condition: state
+            entity_id: !input primary_light
+            state: 'off'
         sequence:
           - service: light.turn_off
-            target: "{{ targets }}"
+            target: !input synced_lights
 
 mode: restart
